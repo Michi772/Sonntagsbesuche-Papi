@@ -1,124 +1,464 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <title>Sonntagsbesuche Papi</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        img {
-            width: 150px;
-            float: left;
-            margin-right: 20px;
-        }
-        .filter {
-            margin-bottom: 20px;
-        }
-    </style>
-    <script>
-        function filterTable() {
-            var input, filter, table, tr, td, i, txtValue;
-            input = document.getElementById("memberFilter");
-            filter = input.value.toUpperCase();
-            table = document.getElementById("visitTable");
-            tr = table.getElementsByTagName("tr");
-            for (i = 1; i < tr.length; i++) {
-                td = tr[i].getElementsByTagName("td")[1];
-                if (td) {
-                    txtValue = td.textContent || td.innerText;
-                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                        tr[i].style.display = "";
-                    } else {
-                        tr[i].style.display = "none";
-                    }
-                }       
-            }
-        }
-    </script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Sonntagsbesuche Papi</title>
+
+  <!-- Stil -->
+  <style>
+    :root { --bg:#f7f7f8; --card:#fff; --muted:#6b7280; --border:#e5e7eb; --accent:#2563eb; }
+    * { box-sizing: border-box }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111827; }
+    header { display:flex; gap:16px; align-items:center; padding:24px 16px; max-width:1000px; margin:0 auto; }
+    header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    header h1 { margin:0 0 4px 0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
+    header p { margin:0; color:var(--muted) }
+    main { max-width:1000px; margin:0 auto; padding:0 16px 64px; display:grid; gap:16px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.04); padding:16px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+    label { color:var(--muted); font-size:14px }
+    input, select, button { border:1px solid var(--border); background:#fff; padding:10px 12px; border-radius:10px; font-size:14px; }
+    button { cursor:pointer; }
+    button.primary { background:var(--accent); color:white; border-color:transparent }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:12px; border-bottom:1px solid var(--border); text-align:left; }
+    th { color:#374151; font-weight:600; font-size:14px; background:#fafafa; position: sticky; top:0; }
+    tr.next { background:#eef2ff; }
+    .row-actions { display:flex; gap:6px; }
+    .muted { color:var(--muted) }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); background:#fff; }
+    .offers { display:grid; gap:10px }
+    .offer { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; display:flex; gap:10px; align-items:center; justify-content:space-between }
+    .offer small { color:var(--muted) }
+    .right { margin-left:auto }
+    .hint { font-size:13px; color:var(--muted) }
+    /* Druck/PDF: Aktionen ausblenden, nur Datum+Mitglied */
+    @media print {
+      header, .toolbar, .offers, .hint { display:none !important; }
+      th:nth-child(3), td:nth-child(3) { display:none !important; } /* Aktion-Spalte */
+      thead { position: static; }
+      tr { page-break-inside: avoid; }
+      table { font-size:12pt; }
+    }
+  </style>
+
+  <!-- html2pdf für PDF-Export -->
+  <script defer src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+  <!-- Firebase (ohne Bundler, kompatibel mit GitHub Pages) -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <h2>Sonntagsbesuche Papi</h2>
-    <div class="filter">
-        <label for="memberFilter">Filter nach Mitglied:</label>
-        <input type="text" id="memberFilter" onkeyup="filterTable()" placeholder="Namen eingeben...">
+  <header>
+    <img src="WhatsApp Bild 2024-08-03 um 20.56.08_41b781d2.png" alt="Papi" />
+    <div>
+      <h1>Sonntagsbesuche Papi</h1>
+      <p class="muted">Fixe Reihenfolge: <strong>Jana → Christian → Karin → Michael → Melanie</strong>. Nächster Termin steht immer oben.</p>
+      <div>
+        <span class="badge">Gemeinsames Tauschen (Firestore)</span>
+        <span class="badge">PDF nur Datum &amp; Mitglied</span>
+      </div>
     </div>
-    <img src="WhatsApp Bild 2024-08-03 um 20.56.08_41b781d2.png" alt="Papi">
-    <table id="visitTable">
-        <tr>
-            <th>Datum</th>
-            <th>Mitglied</th>
-        </tr>
-       <tr><td>24.11.2024</td><td>Jana</td></tr>
-        <tr><td>01.12.2024</td><td>Christian</td></tr>
-        <tr><td>08.12.2024</td><td>Karin</td></tr>
-        <tr><td>15.12.2024</td><td>Michael</td></tr>
-        <tr><td>22.12.2024</td><td>Melanie</td></tr>
-        <tr><td>29.12.2024</td><td>Jana</td></tr>
-	<tr><td>05.01.2025</td><td>Christian</td></tr>
-        <tr><td>12.01.2025</td><td>Karin</td></tr>
-        <tr><td>19.01.2025</td><td>Michael</td></tr>
-        <tr><td>26.01.2025</td><td>Melanie</td></tr>
-        <tr><td>02.02.2025</td><td>Jana</td></tr>
-        <tr><td>09.02.2025</td><td>Christian</td></tr>
-        <tr><td>16.02.2025</td><td>Karin</td></tr>
-        <tr><td>23.02.2025</td><td>Michael</td></tr>
-        <tr><td>02.03.2025</td><td>Melanie</td></tr>
-        <tr><td>09.03.2025</td><td>Jana</td></tr>
-        <tr><td>16.03.2025</td><td>Christian</td></tr>
-        <tr><td>23.03.2025</td><td>Karin</td></tr>
-        <tr><td>30.03.2025</td><td>Michael</td></tr>
-        <tr><td>06.04.2025</td><td>Melanie</td></tr>
-        <tr><td>13.04.2025</td><td>Jana</td></tr>
-        <tr><td>20.04.2025</td><td>Christian</td></tr>
-        <tr><td>27.04.2025</td><td>Karin</td></tr>
-        <tr><td>04.05.2025</td><td>Michael</td></tr>
-        <tr><td>11.05.2025</td><td>Melanie</td></tr>
-        <tr><td>18.05.2025</td><td>Jana</td></tr>
-        <tr><td>25.05.2025</td><td><s>Christian</s> Melanie</td></tr>
-        <tr><td>01.06.2025</td><td>Karin</td></tr>
-        <tr><td>08.06.2025</td><td>Michael</td></tr>
-        <tr><td>15.06.2025</td><td><s>Melanie</s> Christian</td></tr>
-        <tr><td>22.06.2025</td><td>Jana</td></tr>
-        <tr><td>29.06.2025</td><td>Christian</td></tr>
-        <tr><td>06.07.2025</td><td>Karin</td></tr>
-        <tr><td>13.07.2025</td><td>Michael</td></tr>
-        <tr><td>20.07.2025</td><td>Melanie</td></tr>
-        <tr><td>27.07.2025</td><td>Jana</td></tr>
-        <tr><td>03.08.2025</td><td>Christian</td></tr>
-        <tr><td>10.08.2025</td><td>Karin</td></tr>
-        <tr><td>17.08.2025</td><td>Michael</td></tr>
-        <tr><td>24.08.2025</td><td>Melanie</td></tr>
-        <tr><td>31.08.2025</td><td>Jana</td></tr>
-        <tr><td>07.09.2025</td><td>Christian</td></tr>
-        <tr><td>14.09.2025</td><td>Karin</td></tr>
-        <tr><td>21.09.2025</td><td>Michael</td></tr>
-        <tr><td>28.09.2025</td><td>Melanie</td></tr>
-        <tr><td>05.10.2025</td><td>Jana</td></tr>
-        <tr><td>12.10.2025</td><td>Christian</td></tr>
-        <tr><td>19.10.2025</td><td>Karin</td></tr>
-        <tr><td>26.10.2025</td><td>Michael</td></tr>
-        <tr><td>02.11.2025</td><td>Melanie</td></tr>
-        <tr><td>09.11.2025</td><td>Jana</td></tr>
-        <tr><td>16.11.2025</td><td>Christian</td></tr>
-        <tr><td>23.11.2025</td><td>Karin</td></tr>
-        <tr><td>30.11.2025</td><td>Michael</td></tr>
-        <tr><td>07.12.2025</td><td>Melanie</td></tr>
-        <tr><td>14.12.2025</td><td>Jana</td></tr>
-        <tr><td>21.12.2025</td><td>Christian</td></tr>
-        <tr><td>28.12.2025</td><td>Karin</td></tr>
-    </table>
+  </header>
+
+  <main>
+    <section class="card toolbar">
+      <div class="controls">
+        <label for="who">Ich bin:</label>
+        <select id="who">
+          <option>Jana</option>
+          <option>Christian</option>
+          <option>Karin</option>
+          <option>Michael</option>
+          <option>Melanie</option>
+        </select>
+
+        <label for="filter">Filtern:</label>
+        <input id="filter" placeholder="z. B. Jana" />
+
+        <label for="weeks">Zeitraum:</label>
+        <select id="weeks">
+          <option value="26">26 Wochen</option>
+          <option value="52" selected>52 Wochen</option>
+          <option value="104">2 Jahre</option>
+          <option value="156">3 Jahre</option>
+        </select>
+        <button id="refresh">Aktualisieren</button>
+      </div>
+      <div class="controls">
+        <button id="pdf" class="primary">Als PDF speichern</button>
+        <span class="right muted" id="status">Offline…</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <table id="visitTable">
+        <thead>
+          <tr><th style="width:180px">Datum</th><th>Mitglied</th><th style="width:230px">Aktion</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <p class="hint">Hinweis: Im PDF werden die Aktionen ausgeblendet, es bleiben nur „Datum“ &amp; „Mitglied“.</p>
+    </section>
+
+    <section class="card">
+      <h3 style="margin-top:0">Tauschangebote</h3>
+      <div id="offers" class="offers"></div>
+      <p class="hint">Jede/r kann Angebote erstellen und annehmen. Beim Annehmen werden die beiden Termine in der Datenbank vertauscht und sind sofort für alle sichtbar.</p>
+    </section>
+  </main>
+
+  <!-- Dialog: Tausch erstellen -->
+  <dialog id="swapDialog" style="border:1px solid #e5e7eb;border-radius:12px;padding:0;max-width:560px;width:calc(100% - 32px)">
+    <header style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-weight:600">Tausch erstellen</header>
+    <div style="padding:14px;display:grid;gap:10px">
+      <div class="muted">Mein Termin: <span id="fromLabel"></span></div>
+      <label>Ich möchte tauschen mit Termin:
+        <select id="toDate"></select>
+      </label>
+      <small class="muted">Tipp: Wähle einen Termin einer anderen Person. Nach dem Annehmen werden die beiden Zuordnungen vertauscht.</small>
+    </div>
+    <footer style="padding:12px 14px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
+      <button id="cancelSwap">Abbrechen</button>
+      <button id="createSwap" class="primary">Angebot erstellen</button>
+    </footer>
+  </dialog>
+
+  <script>
+    // =========================
+    //   KONFIG / KONSTANTEN
+    // =========================
+    const MEMBERS = ["Jana","Christian","Karin","Michael","Melanie"];
+    const ANCHOR = "2024-11-24";    // Anker-Sonntag
+    const ANCHOR_MEMBER = "Jana";   // Wer am Anker dran war
+
+    // Optional fixe Ausnahmen; werden über Rotation gelegt
+    const STATIC_OVERRIDES = {
+      "2024-11-24":"Jana",
+      "2024-12-01":"Christian",
+      "2024-12-08":"Karin",
+      "2024-12-15":"Michael",
+      "2024-12-22":"Melanie",
+      "2024-12-29":"Jana",
+      "2025-05-25":"Melanie", // statt Christian
+      "2025-06-15":"Christian" // statt Melanie
+    };
+
+    // =========================
+    //   FIREBASE EINRICHTEN
+    // =========================
+    // 1) Firebase-Projekt → Web-App anlegen → Werte unten einsetzen
+    // 2) Firestore aktivieren
+    // 3) (optional) Regeln siehe ganz unten (Kommentar)
+    const firebaseConfig = {
+      apiKey:     "AIzaSyD0JqGU3RtXHr5WKKHUAT4JkeuTwLCzdFE",
+      authDomain: "sonntagsbesuche-papi.firebaseapp.com",
+      projectId:  "sonntagsbesuche-papi"
+    };
+    let db = null; // Firestore-Handle
+
+    // =========================
+    //   DATUMS-UTILS
+    // =========================
+    const FMT = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+
+    function toISO(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
+    function fromISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+    function weeksBetween(aISO,bISO){ return Math.round((fromISO(bISO)-fromISO(aISO))/(1000*60*60*24*7)); }
+    function memberForDate(iso){
+      const off = weeksBetween(ANCHOR, iso);
+      const anchorIdx = MEMBERS.indexOf(ANCHOR_MEMBER);
+      const idx = (anchorIdx + (off % MEMBERS.length) + MEMBERS.length) % MEMBERS.length;
+      return MEMBERS[idx];
+    }
+    function nextSunday(from = new Date()){
+      const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+      const add = (7 - d.getDay()) % 7;
+      d.setDate(d.getDate()+add);
+      return d;
+    }
+    function* sundays(startISO,count){ let d=fromISO(startISO); for(let i=0;i<count;i++){ yield toISO(d); d.setDate(d.getDate()+7);} }
+
+    // =========================
+    //   STATE
+    // =========================
+    const elTBody = document.getElementById("tbody");
+    const elFilter = document.getElementById("filter");
+    const elWeeks  = document.getElementById("weeks");
+    const elWho    = document.getElementById("who");
+    const elStatus = document.getElementById("status");
+    const elOffers = document.getElementById("offers");
+    const elSwapDialog = document.getElementById("swapDialog");
+    const elFromLabel = document.getElementById("fromLabel");
+    const elToDate = document.getElementById("toDate");
+
+    let overrides = {};        // { iso: member } (STATIC + DB)
+    let currentRows = [];      // aktuell dargestellte Zeilen [{iso, member}]
+    let unsubOffers = null;    // Firestore unsubscribe für Angebote
+
+    // =========================
+    //   FIRESTORE-DATEN
+    // =========================
+    async function initFirebase(){
+      try{
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        elStatus.textContent = "Online (Firestore)";
+      }catch(e){
+        console.warn("Firebase init fehlgeschlagen, Offline-Modus aktiv.", e);
+        db = null;
+        elStatus.textContent = "Offline (kein Firestore)";
+      }
+    }
+
+    async function loadOverridesFromDB(){
+      if (!db) return {};
+      const snap = await db.collection("overrides").get();
+      const map = {};
+      snap.forEach(doc => { const d = doc.data(); map[doc.id] = d.member; });
+      return map;
+    }
+
+    async function upsertOverride(iso, member){
+      if (!db) return;
+      await db.collection("overrides").doc(iso).set({ member }, { merge:true });
+    }
+
+    function listenOffers(){
+      if (!db){ elOffers.innerHTML = "<div class='muted'>Kein Firestore aktiv – Angebote sind lokal nicht möglich.</div>"; return; }
+      if (unsubOffers) unsubOffers(); // alte Abos lösen
+      unsubOffers = db.collection("offers").orderBy("createdAt","desc").onSnapshot(renderOffers);
+    }
+
+    async function createOffer(fromISO, toISO, requestedBy){
+      if (!db) { alert("Kein Firestore aktiv."); return; }
+      if (fromISO === toISO){ alert("Bitte einen anderen Termin wählen."); return; }
+      await db.collection("offers").add({
+        fromISO, toISO, requestedBy,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    async function deleteOffer(id){
+      if (!db) return;
+      await db.collection("offers").doc(id).delete();
+    }
+
+    async function acceptOffer(offer){
+      // Vertausche die Zuordnungen der beiden Tage: fromISO <-> toISO
+      const { fromISO, toISO } = offer;
+      // effektiver IST-Zustand (Override > Rotation)
+      const aMember = overrides[fromISO] ?? memberForDate(fromISO);
+      const bMember = overrides[toISO]  ?? memberForDate(toISO);
+
+      const batch = db.batch();
+      const refA = db.collection("overrides").doc(fromISO);
+      const refB = db.collection("overrides").doc(toISO);
+      batch.set(refA, { member: bMember }, { merge:true });
+      batch.set(refB, { member: aMember }, { merge:true });
+      const offerRef = db.collection("offers").doc(offer.id);
+      batch.delete(offerRef);
+      await batch.commit();
+      await refresh(); // neu zeichnen
+    }
+
+    // =========================
+    //   RENDERING
+    // =========================
+    const FMT_DE = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+
+    async function refresh(){
+      // Overrides laden (statisch + DB)
+      const dyn = await loadOverridesFromDB();
+      overrides = { ...STATIC_OVERRIDES, ...dyn };
+
+      const weeks = parseInt(elWeeks.value,10);
+      const firstISO = toISO(nextSunday(new Date()));
+      currentRows = [];
+      for (const iso of sundays(firstISO, weeks)){
+        const member = overrides[iso] ?? memberForDate(iso);
+        currentRows.push({ iso, member });
+      }
+      renderTable();
+    }
+
+    function renderTable(){
+      elTBody.innerHTML = "";
+      const filter = (elFilter.value || "").trim().toLowerCase();
+
+      for (const row of currentRows){
+        if (filter && !row.member.toLowerCase().includes(filter)) continue;
+
+        const tr = document.createElement("tr");
+        // nächsten Sonntag hervorheben
+        if (row.iso === toISO(nextSunday(new Date()))) tr.classList.add("next");
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = FMT_DE.format(fromISO(row.iso));
+
+        const tdMember = document.createElement("td");
+        tdMember.textContent = row.member;
+
+        const tdActions = document.createElement("td");
+        const wrap = document.createElement("div"); wrap.className = "row-actions";
+
+        const btnSwap = document.createElement("button");
+        btnSwap.textContent = "Tauschen…";
+        btnSwap.onclick = () => openSwap(row.iso);
+
+        const btnTake = document.createElement("button");
+        btnTake.textContent = "Übernehmen";
+        btnTake.title = "Setzt für diesen Tag einen Override auf mich";
+        btnTake.onclick = async () => {
+          const me = elWho.value;
+          await upsertOverride(row.iso, me);
+          await refresh();
+        };
+
+        wrap.append(btnSwap, btnTake);
+        tdActions.append(wrap);
+        const trEl = document.createElement("tr");
+        tr.append(tdDate, tdMember, tdActions);
+        elTBody.append(tr);
+      }
+    }
+
+    function renderOffers(snap){
+      elOffers.innerHTML = "";
+      if (snap.empty){
+        elOffers.innerHTML = "<div class='muted'>Keine Angebote vorhanden.</div>";
+        return;
+      }
+      snap.forEach(doc => {
+        const o = { id: doc.id, ...doc.data() };
+        const div = document.createElement("div");
+        div.className = "offer";
+        const fromTxt = FMT.format(fromISO(o.fromISO));
+        const toTxt   = FMT.format(fromISO(o.toISO));
+        const who = o.requestedBy || "Unbekannt";
+        div.innerHTML = `
+          <div><strong>${fromTxt}</strong> ↔ <strong>${toTxt}</strong><br><small>erstellt von ${who}</small></div>
+        `;
+        const buttons = document.createElement("div");
+        const accept = document.createElement("button");
+        accept.className = "primary";
+        accept.textContent = "Annehmen";
+        accept.onclick = () => acceptOffer(o);
+
+        const remove = document.createElement("button");
+        remove.textContent = "Entfernen";
+        remove.title = "Angebot entfernen";
+        remove.onclick = () => deleteOffer(o.id);
+
+        buttons.append(accept, remove);
+        div.append(buttons);
+        elOffers.append(div);
+      });
+    }
+
+    // =========================
+    //   TAUSCH-DIALOG
+    // =========================
+    function openSwap(fromISO){
+      // Fill dialog
+      elFromLabel.textContent = FMT.format(fromISO(fromISO));
+      elSwapDialog.dataset.from = fromISO;
+
+      // Auswahl der Zieltermine (gleiche Liste, aber anderer Tag)
+      elToDate.innerHTML = "";
+      for (const r of currentRows){
+        if (r.iso === fromISO) continue;
+        const opt = document.createElement("option");
+        opt.value = r.iso;
+        const label = `${FMT.format(fromISO(r.iso))} — ${r.member}`;
+        opt.textContent = label;
+        elToDate.append(opt);
+      }
+      elSwapDialog.showModal();
+    }
+
+    document.getElementById("cancelSwap").onclick = () => elSwapDialog.close();
+    document.getElementById("createSwap").onclick = async () => {
+      const me = elWho.value;
+      const fromISO = elSwapDialog.dataset.from;
+      const toISO = elToDate.value;
+      await createOffer(fromISO, toISO, me);
+      elSwapDialog.close();
+    };
+
+    // =========================
+    //   EVENTS & PDF-EXPORT
+    // =========================
+    document.getElementById("refresh").onclick = refresh;
+    elFilter.addEventListener("input", renderTable);
+    document.getElementById("pdf").onclick = () => exportCleanPDF();
+
+    function exportCleanPDF(){
+      // temporäre, saubere 2-Spalten-Tabelle aus aktuell gefilterter Ansicht
+      const rows = Array.from(document.querySelectorAll('#visitTable tbody tr')).filter(tr => tr.style.display !== 'none');
+      const wrapper = document.createElement('div');
+      wrapper.style.padding = '12px';
+      wrapper.innerHTML = `
+        <h2 style="margin:0 0 8px">Sonntagsbesuche Papi</h2>
+        <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif">
+          <thead><tr>
+            <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px 6px">Datum</th>
+            <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px 6px">Mitglied</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>`;
+      const tb = wrapper.querySelector('tbody');
+      for (const tr of rows){
+        const d = tr.children[0].textContent.trim();
+        const m = tr.children[1].textContent.trim();
+        const r = document.createElement('tr');
+        r.innerHTML = `<td style="border-bottom:1px solid #eee;padding:6px">${d}</td>
+                       <td style="border-bottom:1px solid #eee;padding:6px">${m}</td>`;
+        tb.appendChild(r);
+      }
+      html2pdf().from(wrapper).set({
+        margin:10,
+        filename:`Papi-Sonntagsbesuche_${new Date().toISOString().slice(0,10)}.pdf`,
+        html2canvas:{ scale:2, useCORS:true },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' }
+      }).save();
+    }
+
+    // =========================
+    //   START
+    // =========================
+    (async function start(){
+      await initFirebase();  // setzt Firestore & Status
+      listenOffers();        // Live-Angebote
+      await refresh();       // Tabelle initial
+    })();
+
+    // =========================
+    //   FIRESTORE-REGELN (Beispiel)
+    // =========================
+    /*
+    // In der Firebase-Konsole unter Firestore -> Regeln:
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        // Alle dürfen lesen
+        match /{document=**} {
+          allow read: if true;
+        }
+        // Für Demo: auch schreiben erlauben (jede/r kann Angebot erstellen/entfernen, Overrides setzen)
+        // Später kannst du hier auf bestimmte E-Mail-Domains/UIDs einschränken.
+        match /overrides/{date} {
+          allow create, update, delete: if true;
+        }
+        match /offers/{id} {
+          allow create, update, delete: if true;
+        }
+      }
+    }
+    */
+  </script>
 </body>
 </html>
