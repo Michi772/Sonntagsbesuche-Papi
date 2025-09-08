@@ -5,15 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Sonntagsbesuche Papi</title>
 
-  <!-- Stil -->
   <style>
-    :root { --bg:#f7f7f8; --card:#fff; --muted:#6b7280; --border:#e5e7eb; --accent:#2563eb; }
+    :root { --bg:#f7f7f8; --card:#fff; --muted:#6B7280; --border:#e5e7eb; --accent:#2563eb; }
     * { box-sizing: border-box }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111827; }
     header { display:flex; gap:16px; align-items:center; padding:24px 16px; max-width:1000px; margin:0 auto; }
-    header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
-    header h1 { margin:0 0 4px 0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
-    header p { margin:0; color:var(--muted) }
+    header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,.08); }
+    header h1 { margin:0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
     main { max-width:1000px; margin:0 auto; padding:0 16px 64px; display:grid; gap:16px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.04); padding:16px; }
     .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between }
@@ -28,7 +26,6 @@
     tr.next { background:#eef2ff; }
     .row-actions { display:flex; gap:6px; }
     .muted { color:var(--muted) }
-    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); background:#fff; }
     .offers { display:grid; gap:10px }
     .offer { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; display:flex; gap:10px; align-items:center; justify-content:space-between }
     .offer small { color:var(--muted) }
@@ -45,17 +42,11 @@
 
   <!-- html2pdf für PDF-Export -->
   <script defer src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-
-  <!-- Firebase -->
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <header>
     <img src="WhatsApp Bild 2024-08-03 um 20.56.08_41b781d2.png" alt="Papi" />
-    <div>
-      <h1>Sonntagsbesuche Papi</h1>
-    </div>
+    <div><h1>Sonntagsbesuche Papi</h1></div>
   </header>
 
   <main>
@@ -63,11 +54,7 @@
       <div class="controls">
         <label for="who">Ich bin:</label>
         <select id="who">
-          <option>Jana</option>
-          <option>Christian</option>
-          <option>Karin</option>
-          <option>Michael</option>
-          <option>Melanie</option>
+          <option>Jana</option><option>Christian</option><option>Karin</option><option>Michael</option><option>Melanie</option>
         </select>
 
         <label for="filter">Filtern:</label>
@@ -88,22 +75,20 @@
       </div>
     </section>
 
-    <!-- Tauschangebote jetzt direkt oben -->
+    <!-- ANGEBOTE: jetzt OBEN -->
     <section class="card">
       <h3 style="margin-top:0">Tauschangebote</h3>
       <div id="offers" class="offers"></div>
-      <p class="hint">Jede/r kann Angebote erstellen und annehmen. Beim Annehmen werden die beiden Termine in der Datenbank vertauscht und sind sofort für alle sichtbar.</p>
+      <p class="hint">Angebote erscheinen hier live. Beim Annehmen werden die beiden Termine in der DB vertauscht.</p>
     </section>
 
-    <!-- Tabelle der Besuche -->
+    <!-- TABELLE -->
     <section class="card">
       <table id="visitTable">
-        <thead>
-          <tr><th style="width:180px">Datum</th><th>Mitglied</th><th style="width:230px">Aktion</th></tr>
-        </thead>
+        <thead><tr><th style="width:180px">Datum</th><th>Mitglied</th><th style="width:230px">Aktion</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
-      <p class="hint">Hinweis: Im PDF werden die Aktionen ausgeblendet, es bleiben nur „Datum“ & Mitglied“.</p>
+      <p class="hint">Im PDF werden die Aktionen ausgeblendet – es bleiben nur „Datum“ &amp; „Mitglied“.</p>
     </section>
   </main>
 
@@ -115,7 +100,7 @@
       <label>Ich möchte tauschen mit Termin:
         <select id="toDate"></select>
       </label>
-      <small class="muted">Tipp: Wähle einen Termin einer anderen Person. Nach dem Annehmen werden die beiden Zuordnungen vertauscht.</small>
+      <small class="muted">Nach dem Annehmen werden die beiden Zuordnungen vertauscht.</small>
     </div>
     <footer style="padding:12px 14px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
       <button id="cancelSwap">Abbrechen</button>
@@ -123,9 +108,289 @@
     </footer>
   </dialog>
 
-  <!-- Dein JavaScript bleibt gleich (Firebase + Logik) -->
   <script>
-    // ... dein kompletter JavaScript-Teil wie vorher ...
+    // ===== FESTE EINSTELLUNGEN =====
+    const MEMBERS = ["Jana","Christian","Karin","Michael","Melanie"];
+    const ANCHOR = "2024-11-24";         // erster Sonntag in deiner Liste
+    const ANCHOR_MEMBER = "Jana";        // wer dort dran war
+    const STATIC_OVERRIDES = {           // fixe Ausnahmen
+      "2024-11-24":"Jana","2024-12-01":"Christian","2024-12-08":"Karin",
+      "2024-12-15":"Michael","2024-12-22":"Melanie","2024-12-29":"Jana",
+      "2025-05-25":"Melanie","2025-06-15":"Christian"
+    };
+
+    // ===== Firebase-Konfig (DEINE 3 Werte) =====
+    const firebaseConfig = {
+      apiKey:     "AIzaSyD0JqGU3RtXHr5WKKHUAT4JkeuTwLCzdFE",
+      authDomain: "sonntagsbesuche-papi.firebaseapp.com",
+      projectId:  "sonntagsbesuche-papi"
+    };
+
+    // ===== DOM =====
+    const elTBody = document.getElementById("tbody");
+    const elFilter = document.getElementById("filter");
+    const elWeeks  = document.getElementById("weeks");
+    const elWho    = document.getElementById("who");
+    const elStatus = document.getElementById("status");
+    const elOffers = document.getElementById("offers");
+    const elSwapDialog = document.getElementById("swapDialog");
+    const elFromLabel = document.getElementById("fromLabel");
+    const elToDate = document.getElementById("toDate");
+
+    // ===== STATE =====
+    let db = null;
+    let overrides = {};
+    let currentRows = [];
+    let unsubOffers = null;
+
+    // ===== Utils (Datum) =====
+    const FMT = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+    const FMT_DE = FMT;
+    function toISO(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
+    function fromISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+    function weeksBetween(aISO,bISO){ return Math.round((fromISO(bISO)-fromISO(aISO))/(1000*60*60*24*7)); }
+    function memberForDate(iso){
+      const off = weeksBetween(ANCHOR, iso);
+      const anchorIdx = MEMBERS.indexOf(ANCHOR_MEMBER);
+      const idx = (anchorIdx + (off % MEMBERS.length) + MEMBERS.length) % MEMBERS.length;
+      return MEMBERS[idx];
+    }
+    function nextSunday(from = new Date()){ const d = new Date(from.getFullYear(), from.getMonth(), from.getDate()); const add = (7 - d.getDay()) % 7; d.setDate(d.getDate()+add); return d; }
+    function* sundays(startISO,count){ let d=fromISO(startISO); for(let i=0;i<count;i++){ yield toISO(d); d.setDate(d.getDate()+7);} }
+
+    // ===== dynamischer Firebase-Loader (3 CDNs) =====
+    function loadScript(src){
+      return new Promise((resolve,reject)=>{
+        const s=document.createElement("script");
+        s.src=src; s.defer=true;
+        s.onload=()=>resolve();
+        s.onerror=()=>reject(new Error("Script konnte nicht geladen werden: "+src));
+        document.head.appendChild(s);
+      });
+    }
+    async function ensureFirebase(){
+      if (window.firebase) return;
+      const appUrls = [
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+        "https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js",
+        "https://unpkg.com/firebase@9.23.0/firebase-app-compat.js"
+      ];
+      const fsUrls = [
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js",
+        "https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-firestore-compat.js",
+        "https://unpkg.com/firebase@9.23.0/firebase-firestore-compat.js"
+      ];
+      let lastErr=null;
+      for (let i=0;i<appUrls.length;i++){
+        try{ await loadScript(appUrls[i]); await loadScript(fsUrls[i]); if (window.firebase) return; }
+        catch(e){ lastErr=e; }
+      }
+      throw lastErr || new Error("Firebase SDK wurde nicht geladen.");
+    }
+
+    // ===== Firestore =====
+    async function initFirebase(){
+      try{
+        await ensureFirebase();
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        elStatus.textContent = "Online (Firestore)";
+      }catch(e){
+        console.warn("Firebase init fehlgeschlagen:", e);
+        elStatus.textContent = "Offline – " + (e?.message || "Init-Fehler");
+        db = null; // Offline-Modus (Tabelle funktioniert trotzdem)
+      }
+    }
+
+    async function loadOverridesFromDB(){
+      if (!db) return {};
+      const snap = await db.collection("overrides").get();
+      const map = {};
+      snap.forEach(doc => { const d = doc.data(); map[doc.id] = d.member; });
+      return map;
+    }
+    async function upsertOverride(iso, member){
+      if (!db) return;
+      await db.collection("overrides").doc(iso).set({ member }, { merge:true });
+    }
+    function listenOffers(){
+      if (!db){ elOffers.innerHTML = "<div class='muted'>Kein Firestore aktiv – Angebote sind lokal nicht möglich.</div>"; return; }
+      if (unsubOffers) unsubOffers();
+      unsubOffers = db.collection("offers").orderBy("createdAt","desc").onSnapshot(renderOffers);
+    }
+    async function createOffer(fromISO, toISO, requestedBy){
+      if (!db) { throw new Error("Kein Firestore aktiv."); }
+      if (fromISO === toISO){ throw new Error("Bitte einen anderen Termin wählen."); }
+      await db.collection("offers").add({
+        fromISO, toISO, requestedBy,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    async function deleteOffer(id){ if (!db) return; await db.collection("offers").doc(id).delete(); }
+    async function acceptOffer(offer){
+      const { fromISO, toISO } = offer;
+      const aMember = overrides[fromISO] ?? memberForDate(fromISO);
+      const bMember = overrides[toISO]  ?? memberForDate(toISO);
+      const batch = db.batch();
+      batch.set(db.collection("overrides").doc(fromISO), { member: bMember }, { merge:true });
+      batch.set(db.collection("overrides").doc(toISO),  { member: aMember }, { merge:true });
+      batch.delete(db.collection("offers").doc(offer.id));
+      await batch.commit();
+      await refresh();
+    }
+
+    // ===== Rendering =====
+    async function refresh(){
+      const dyn = await loadOverridesFromDB();                   // kann leer sein, wenn offline
+      overrides = { ...STATIC_OVERRIDES, ...dyn };               // Rotation + Ausnahmen
+
+      const weeks = parseInt(elWeeks.value,10);
+      const firstISO = toISO(nextSunday(new Date()));            // nächster Termin zuerst
+      currentRows = [];
+      for (const iso of sundays(firstISO, weeks)){
+        const member = overrides[iso] ?? memberForDate(iso);
+        currentRows.push({ iso, member });
+      }
+      renderTable();
+    }
+
+    function renderTable(){
+      elTBody.innerHTML = "";
+      const filter = (elFilter.value || "").trim().toLowerCase();
+      const nextISO = toISO(nextSunday(new Date()));
+
+      for (const row of currentRows){
+        if (filter && !row.member.toLowerCase().includes(filter)) continue;
+
+        const tr = document.createElement("tr");
+        if (row.iso === nextISO) tr.classList.add("next");
+
+        const tdDate = document.createElement("td");
+        tdDate.textContent = FMT_DE.format(fromISO(row.iso));
+
+        const tdMember = document.createElement("td");
+        tdMember.textContent = row.member;
+
+        const tdActions = document.createElement("td");
+        const wrap = document.createElement("div"); wrap.className = "row-actions";
+
+        const btnSwap = document.createElement("button");
+        btnSwap.textContent = "Tauschen…";
+        btnSwap.onclick = () => openSwap(row.iso);
+
+        const btnTake = document.createElement("button");
+        btnTake.textContent = "Übernehmen";
+        btnTake.title = "Setzt für diesen Tag einen Override auf mich";
+        btnTake.onclick = async () => { const me = elWho.value; await upsertOverride(row.iso, me); await refresh(); };
+
+        wrap.append(btnSwap, btnTake);
+        tdActions.append(wrap);
+        tr.append(tdDate, tdMember, tdActions);
+        elTBody.append(tr);
+      }
+    }
+
+    function renderOffers(snap){
+      elOffers.innerHTML = "";
+      if (snap.empty){
+        elOffers.innerHTML = "<div class='muted'>Keine Angebote vorhanden.</div>";
+        return;
+      }
+      snap.forEach(doc => {
+        const o = { id: doc.id, ...doc.data() };
+        const div = document.createElement("div");
+        div.className = "offer";
+        const fromTxt = FMT.format(fromISO(o.fromISO));
+        const toTxt   = FMT.format(fromISO(o.toISO));
+        const who = o.requestedBy || "Unbekannt";
+        div.innerHTML = `<div><strong>${fromTxt}</strong> ↔ <strong>${toTxt}</strong><br><small>erstellt von ${who}</small></div>`;
+        const buttons = document.createElement("div");
+        const accept = document.createElement("button"); accept.className = "primary"; accept.textContent = "Annehmen"; accept.onclick = () => acceptOffer(o);
+        const remove = document.createElement("button"); remove.textContent = "Entfernen"; remove.title = "Angebot entfernen"; remove.onclick = () => deleteOffer(o.id);
+        buttons.append(accept, remove);
+        div.append(buttons);
+        elOffers.append(div);
+      });
+    }
+
+    // ===== Tausch-Dialog =====
+    function openSwap(isoStr){
+      elFromLabel.textContent = FMT.format(fromISO(isoStr));
+      elSwapDialog.dataset.from = isoStr;
+      elToDate.innerHTML = "";
+      for (const r of currentRows){
+        if (r.iso === isoStr) continue;
+        const opt = document.createElement("option");
+        opt.value = r.iso;
+        opt.textContent = `${FMT.format(fromISO(r.iso))} — ${r.member}`;
+        elToDate.append(opt);
+      }
+      elSwapDialog.showModal();
+    }
+    document.getElementById("cancelSwap").onclick = () => elSwapDialog.close();
+    document.getElementById("createSwap").onclick = async () => {
+      const me = elWho.value;
+      const fromISOVal = elSwapDialog.dataset.from;
+      const toISOVal = elToDate.value;
+      try{
+        await createOffer(fromISOVal, toISOVal, me);
+        elSwapDialog.close();
+      }catch(e){
+        alert("Fehler beim Speichern: " + (e?.message || e));
+      }
+    };
+
+    // ===== PDF =====
+    document.getElementById("pdf").onclick = () => exportCleanPDF();
+    function exportCleanPDF(){
+      const rows = Array.from(document.querySelectorAll('#visitTable tbody tr')).filter(tr => tr.style.display !== 'none');
+      const wrapper = document.createElement('div'); wrapper.style.padding = '12px';
+      wrapper.innerHTML = `
+        <h2 style="margin:0 0 8px">Sonntagsbesuche Papi</h2>
+        <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif">
+          <thead><tr>
+            <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px 6px">Datum</th>
+            <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px 6px">Mitglied</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>`;
+      const tb = wrapper.querySelector('tbody');
+      for (const tr of rows){
+        const d = tr.children[0].textContent.trim();
+        const m = tr.children[1].textContent.trim();
+        const r = document.createElement('tr');
+        r.innerHTML = `<td style="border-bottom:1px solid #eee;padding:6px">${d}</td>
+                       <td style="border-bottom:1px solid #eee;padding:6px">${m}</td>`;
+        tb.appendChild(r);
+      }
+      html2pdf().from(wrapper).set({
+        margin:10,
+        filename:`Papi-Sonntagsbesuche_${new Date().toISOString().slice(0,10)}.pdf`,
+        html2canvas:{ scale:2, useCORS:true },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' }
+      }).save();
+    }
+
+    // ===== Events & Start =====
+    document.getElementById("refresh").onclick = refresh;
+    elFilter.addEventListener("input", renderTable);
+
+    (async function start(){
+      await initFirebase();   // lädt SDK + initialisiert (oder bleibt offline)
+      listenOffers();         // Live-Angebote (zeigt Hinweis, wenn offline)
+      await refresh();        // Tabelle füllen (funktioniert auch offline!)
+    })();
+
+    /* Firestore-Regeln (einfacher Start):
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /{document=**} { allow read: if true; }
+        match /overrides/{date} { allow create, update, delete: if true; }
+        match /offers/{id} { allow create, update, delete: if true; }
+      }
+    }
+    */
   </script>
 </body>
 </html>
