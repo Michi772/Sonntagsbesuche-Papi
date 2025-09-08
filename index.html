@@ -12,8 +12,7 @@
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111827; }
     header { display:flex; gap:16px; align-items:center; padding:24px 16px; max-width:1000px; margin:0 auto; }
     header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
-    header h1 { margin:0 0 4px 0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
-    header p { margin:0; color:var(--muted) }
+    header h1 { margin:0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
     main { max-width:1000px; margin:0 auto; padding:0 16px 64px; display:grid; gap:16px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.04); padding:16px; }
     .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between }
@@ -28,12 +27,12 @@
     tr.next { background:#eef2ff; }
     .row-actions { display:flex; gap:6px; }
     .muted { color:var(--muted) }
-    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); background:#fff; }
     .offers { display:grid; gap:10px }
     .offer { border:1px dashed var(--border); border-radius:12px; padding:10px 12px; display:flex; gap:10px; align-items:center; justify-content:space-between }
     .offer small { color:var(--muted) }
     .right { margin-left:auto }
     .hint { font-size:13px; color:var(--muted) }
+
     /* Druck/PDF: Aktionen ausblenden, nur Datum+Mitglied */
     @media print {
       header, .toolbar, .offers, .hint { display:none !important; }
@@ -54,14 +53,7 @@
 <body>
   <header>
     <img src="WhatsApp Bild 2024-08-03 um 20.56.08_41b781d2.png" alt="Papi" />
-    <div>
-      <h1>Sonntagsbesuche Papi</h1>
-      <p class="muted">Fixe Reihenfolge: <strong>Jana → Christian → Karin → Michael → Melanie</strong>. Nächster Termin steht immer oben.</p>
-      <div>
-        <span class="badge">Gemeinsames Tauschen (Firestore)</span>
-        <span class="badge">PDF nur Datum &amp; Mitglied</span>
-      </div>
-    </div>
+    <div><h1>Sonntagsbesuche Papi</h1></div>
   </header>
 
   <main>
@@ -101,13 +93,12 @@
         </thead>
         <tbody id="tbody"></tbody>
       </table>
-      <p class="hint">Hinweis: Im PDF werden die Aktionen ausgeblendet, es bleiben nur „Datum“ &amp; „Mitglied“.</p>
+      <p class="hint">Im PDF werden die Aktionen ausgeblendet – es bleiben nur „Datum“ &amp; „Mitglied“.</p>
     </section>
 
     <section class="card">
       <h3 style="margin-top:0">Tauschangebote</h3>
       <div id="offers" class="offers"></div>
-      <p class="hint">Jede/r kann Angebote erstellen und annehmen. Beim Annehmen werden die beiden Termine in der Datenbank vertauscht und sind sofort für alle sichtbar.</p>
     </section>
   </main>
 
@@ -119,7 +110,7 @@
       <label>Ich möchte tauschen mit Termin:
         <select id="toDate"></select>
       </label>
-      <small class="muted">Tipp: Wähle einen Termin einer anderen Person. Nach dem Annehmen werden die beiden Zuordnungen vertauscht.</small>
+      <small class="muted">Nach dem Annehmen werden die beiden Zuordnungen vertauscht.</small>
     </div>
     <footer style="padding:12px 14px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
       <button id="cancelSwap">Abbrechen</button>
@@ -150,9 +141,6 @@
     // =========================
     //   FIREBASE EINRICHTEN
     // =========================
-    // 1) Firebase-Projekt → Web-App anlegen → Werte unten einsetzen
-    // 2) Firestore aktivieren
-    // 3) (optional) Regeln siehe ganz unten (Kommentar)
     const firebaseConfig = {
       apiKey:     "AIzaSyD0JqGU3RtXHr5WKKHUAT4JkeuTwLCzdFE",
       authDomain: "sonntagsbesuche-papi.firebaseapp.com",
@@ -320,7 +308,6 @@
 
         wrap.append(btnSwap, btnTake);
         tdActions.append(wrap);
-        const trEl = document.createElement("tr");
         tr.append(tdDate, tdMember, tdActions);
         elTBody.append(tr);
       }
@@ -360,17 +347,17 @@
     }
 
     // =========================
-    //   TAUSCH-DIALOG
+    //   TAUSCH-DIALOG (BUGFIX: kein Namenskonflikt)
     // =========================
-    function openSwap(fromISO){
-      // Fill dialog
-      elFromLabel.textContent = FMT.format(fromISO(fromISO));
-      elSwapDialog.dataset.from = fromISO;
+    function openSwap(isoStr){
+      // Label/State
+      elFromLabel.textContent = FMT.format(fromISO(isoStr));
+      elSwapDialog.dataset.from = isoStr;
 
-      // Auswahl der Zieltermine (gleiche Liste, aber anderer Tag)
+      // Zieltermine füllen
       elToDate.innerHTML = "";
       for (const r of currentRows){
-        if (r.iso === fromISO) continue;
+        if (r.iso === isoStr) continue;
         const opt = document.createElement("option");
         opt.value = r.iso;
         const label = `${FMT.format(fromISO(r.iso))} — ${r.member}`;
@@ -383,9 +370,9 @@
     document.getElementById("cancelSwap").onclick = () => elSwapDialog.close();
     document.getElementById("createSwap").onclick = async () => {
       const me = elWho.value;
-      const fromISO = elSwapDialog.dataset.from;
-      const toISO = elToDate.value;
-      await createOffer(fromISO, toISO, me);
+      const fromISOVal = elSwapDialog.dataset.from;
+      const toISOVal = elToDate.value;
+      await createOffer(fromISOVal, toISOVal, me);
       elSwapDialog.close();
     };
 
