@@ -191,16 +191,19 @@
     //   FIRESTORE-DATEN
     // =========================
     async function initFirebase(){
-      try{
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        elStatus.textContent = "Online (Firestore)";
-      }catch(e){
-        console.warn("Firebase init fehlgeschlagen, Offline-Modus aktiv.", e);
-        db = null;
-        elStatus.textContent = "Offline (kein Firestore)";
-      }
+  try{
+    if (typeof firebase === "undefined") {
+      throw new Error("Firebase SDK wurde nicht geladen (geblockt?).");
     }
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    document.getElementById("status").textContent = "Online (Firestore)";
+  }catch(e){
+    console.warn("Firebase init fehlgeschlagen:", e);
+    document.getElementById("status").textContent = "Offline – " + (e && e.message ? e.message : "Init-Fehler");
+    db = null;
+  }
+}
 
     async function loadOverridesFromDB(){
       if (!db) return {};
@@ -449,3 +452,4 @@
   </script>
 </body>
 </html>
+
