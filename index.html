@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Sonntagsbesuche Papi</title>
 
-  <!-- Stil -->
   <style>
-    :root { --bg:#f7f7f8; --card:#fff; --muted:#6b7280; --border:#e5e7eb; --accent:#2563eb; }
+    :root { --bg:#f7f7f8; --card:#fff; --muted:#6B7280; --border:#e5e7eb; --accent:#2563eb; }
     * { box-sizing: border-box }
     body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#111827; }
     header { display:flex; gap:16px; align-items:center; padding:24px 16px; max-width:1000px; margin:0 auto; }
-    header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    header img { width:120px; height:120px; object-fit:cover; border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,.08); }
     header h1 { margin:0; font-weight:700; font-size: clamp(22px, 3vw, 32px); }
     main { max-width:1000px; margin:0 auto; padding:0 16px 64px; display:grid; gap:16px; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.04); padding:16px; }
@@ -33,10 +32,10 @@
     .right { margin-left:auto }
     .hint { font-size:13px; color:var(--muted) }
 
-    /* Druck/PDF: Aktionen ausblenden, nur Datum+Mitglied */
+    /* PDF/Druck: nur Datum & Mitglied */
     @media print {
       header, .toolbar, .offers, .hint { display:none !important; }
-      th:nth-child(3), td:nth-child(3) { display:none !important; } /* Aktion-Spalte */
+      th:nth-child(3), td:nth-child(3) { display:none !important; }
       thead { position: static; }
       tr { page-break-inside: avoid; }
       table { font-size:12pt; }
@@ -45,10 +44,6 @@
 
   <!-- html2pdf für PDF-Export -->
   <script defer src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-
-  <!-- Firebase (ohne Bundler, kompatibel mit GitHub Pages) -->
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <header>
@@ -61,11 +56,7 @@
       <div class="controls">
         <label for="who">Ich bin:</label>
         <select id="who">
-          <option>Jana</option>
-          <option>Christian</option>
-          <option>Karin</option>
-          <option>Michael</option>
-          <option>Melanie</option>
+          <option>Jana</option><option>Christian</option><option>Karin</option><option>Michael</option><option>Melanie</option>
         </select>
 
         <label for="filter">Filtern:</label>
@@ -88,9 +79,7 @@
 
     <section class="card">
       <table id="visitTable">
-        <thead>
-          <tr><th style="width:180px">Datum</th><th>Mitglied</th><th style="width:230px">Aktion</th></tr>
-        </thead>
+        <thead><tr><th style="width:180px">Datum</th><th>Mitglied</th><th style="width:230px">Aktion</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
       <p class="hint">Im PDF werden die Aktionen ausgeblendet – es bleiben nur „Datum“ &amp; „Mitglied“.</p>
@@ -119,60 +108,23 @@
   </dialog>
 
   <script>
-    // =========================
-    //   KONFIG / KONSTANTEN
-    // =========================
+    // ---------- feste Einstellungen ----------
     const MEMBERS = ["Jana","Christian","Karin","Michael","Melanie"];
-    const ANCHOR = "2024-11-24";    // Anker-Sonntag
-    const ANCHOR_MEMBER = "Jana";   // Wer am Anker dran war
-
-    // Optional fixe Ausnahmen; werden über Rotation gelegt
+    const ANCHOR = "2024-11-24";
+    const ANCHOR_MEMBER = "Jana";
     const STATIC_OVERRIDES = {
-      "2024-11-24":"Jana",
-      "2024-12-01":"Christian",
-      "2024-12-08":"Karin",
-      "2024-12-15":"Michael",
-      "2024-12-22":"Melanie",
-      "2024-12-29":"Jana",
-      "2025-05-25":"Melanie", // statt Christian
-      "2025-06-15":"Christian" // statt Melanie
+      "2024-11-24":"Jana","2024-12-01":"Christian","2024-12-08":"Karin","2024-12-15":"Michael","2024-12-22":"Melanie","2024-12-29":"Jana",
+      "2025-05-25":"Melanie","2025-06-15":"Christian"
     };
 
-    // =========================
-    //   FIREBASE EINRICHTEN
-    // =========================
+    // ---------- Firebase Konfiguration (deine drei Werte) ----------
     const firebaseConfig = {
       apiKey:     "AIzaSyD0JqGU3RtXHr5WKKHUAT4JkeuTwLCzdFE",
       authDomain: "sonntagsbesuche-papi.firebaseapp.com",
       projectId:  "sonntagsbesuche-papi"
     };
-    let db = null; // Firestore-Handle
 
-    // =========================
-    //   DATUMS-UTILS
-    // =========================
-    const FMT = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
-
-    function toISO(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
-    function fromISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
-    function weeksBetween(aISO,bISO){ return Math.round((fromISO(bISO)-fromISO(aISO))/(1000*60*60*24*7)); }
-    function memberForDate(iso){
-      const off = weeksBetween(ANCHOR, iso);
-      const anchorIdx = MEMBERS.indexOf(ANCHOR_MEMBER);
-      const idx = (anchorIdx + (off % MEMBERS.length) + MEMBERS.length) % MEMBERS.length;
-      return MEMBERS[idx];
-    }
-    function nextSunday(from = new Date()){
-      const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-      const add = (7 - d.getDay()) % 7;
-      d.setDate(d.getDate()+add);
-      return d;
-    }
-    function* sundays(startISO,count){ let d=fromISO(startISO); for(let i=0;i<count;i++){ yield toISO(d); d.setDate(d.getDate()+7);} }
-
-    // =========================
-    //   STATE
-    // =========================
+    // ---------- DOM-Referenzen ----------
     const elTBody = document.getElementById("tbody");
     const elFilter = document.getElementById("filter");
     const elWeeks  = document.getElementById("weeks");
@@ -183,27 +135,72 @@
     const elFromLabel = document.getElementById("fromLabel");
     const elToDate = document.getElementById("toDate");
 
-    let overrides = {};        // { iso: member } (STATIC + DB)
-    let currentRows = [];      // aktuell dargestellte Zeilen [{iso, member}]
-    let unsubOffers = null;    // Firestore unsubscribe für Angebote
+    // ---------- State ----------
+    let db = null;
+    let overrides = {};
+    let currentRows = [];
+    let unsubOffers = null;
 
-    // =========================
-    //   FIRESTORE-DATEN
-    // =========================
-    async function initFirebase(){
-  try{
-    if (typeof firebase === "undefined") {
-      throw new Error("Firebase SDK wurde nicht geladen (geblockt?).");
+    // ---------- Utils ----------
+    const FMT = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
+    function toISO(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${day}`; }
+    function fromISO(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+    function weeksBetween(aISO,bISO){ return Math.round((fromISO(bISO)-fromISO(aISO))/(1000*60*60*24*7)); }
+    function memberForDate(iso){
+      const off = weeksBetween(ANCHOR, iso);
+      const anchorIdx = MEMBERS.indexOf(ANCHOR_MEMBER);
+      const idx = (anchorIdx + (off % MEMBERS.length) + MEMBERS.length) % MEMBERS.length;
+      return MEMBERS[idx];
     }
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    document.getElementById("status").textContent = "Online (Firestore)";
-  }catch(e){
-    console.warn("Firebase init fehlgeschlagen:", e);
-    document.getElementById("status").textContent = "Offline – " + (e && e.message ? e.message : "Init-Fehler");
-    db = null;
-  }
-}
+    function nextSunday(from = new Date()){ const d = new Date(from.getFullYear(),from.getMonth(),from.getDate()); const add=(7-d.getDay())%7; d.setDate(d.getDate()+add); return d; }
+    function* sundays(startISO,count){ let d=fromISO(startISO); for(let i=0;i<count;i++){ yield toISO(d); d.setDate(d.getDate()+7);} }
+
+    // ---------- dynamischer Loader (3 CDNs, Fallback) ----------
+    function loadScript(src){
+      return new Promise((resolve,reject)=>{
+        const s=document.createElement("script");
+        s.src=src; s.defer=true;
+        s.onload=()=>resolve();
+        s.onerror=()=>reject(new Error("Script konnte nicht geladen werden: "+src));
+        document.head.appendChild(s);
+      });
+    }
+    async function ensureFirebase(){
+      if (window.firebase) return;
+      const appUrls = [
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+        "https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-app-compat.js",
+        "https://unpkg.com/firebase@9.23.0/firebase-app-compat.js"
+      ];
+      const fsUrls = [
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js",
+        "https://cdn.jsdelivr.net/npm/firebase@9.23.0/firebase-firestore-compat.js",
+        "https://unpkg.com/firebase@9.23.0/firebase-firestore-compat.js"
+      ];
+      let lastErr = null;
+      for (let i=0;i<appUrls.length;i++){
+        try{
+          await loadScript(appUrls[i]);
+          await loadScript(fsUrls[i]);
+          if (window.firebase) return;
+        }catch(e){ lastErr = e; }
+      }
+      throw lastErr || new Error("Firebase SDK wurde nicht geladen.");
+    }
+
+    // ---------- Firestore ----------
+    async function initFirebase(){
+      try{
+        await ensureFirebase();
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        elStatus.textContent = "Online (Firestore)";
+      }catch(e){
+        console.warn("Firebase init fehlgeschlagen:", e);
+        elStatus.textContent = "Offline – " + (e?.message || "Init-Fehler");
+        db = null;
+      }
+    }
 
     async function loadOverridesFromDB(){
       if (!db) return {};
@@ -212,18 +209,15 @@
       snap.forEach(doc => { const d = doc.data(); map[doc.id] = d.member; });
       return map;
     }
-
     async function upsertOverride(iso, member){
       if (!db) return;
       await db.collection("overrides").doc(iso).set({ member }, { merge:true });
     }
-
     function listenOffers(){
       if (!db){ elOffers.innerHTML = "<div class='muted'>Kein Firestore aktiv – Angebote sind lokal nicht möglich.</div>"; return; }
-      if (unsubOffers) unsubOffers(); // alte Abos lösen
+      if (unsubOffers) unsubOffers();
       unsubOffers = db.collection("offers").orderBy("createdAt","desc").onSnapshot(renderOffers);
     }
-
     async function createOffer(fromISO, toISO, requestedBy){
       if (!db) { alert("Kein Firestore aktiv."); return; }
       if (fromISO === toISO){ alert("Bitte einen anderen Termin wählen."); return; }
@@ -232,40 +226,25 @@
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
-
-    async function deleteOffer(id){
-      if (!db) return;
-      await db.collection("offers").doc(id).delete();
-    }
-
+    async function deleteOffer(id){ if (!db) return; await db.collection("offers").doc(id).delete(); }
     async function acceptOffer(offer){
-      // Vertausche die Zuordnungen der beiden Tage: fromISO <-> toISO
       const { fromISO, toISO } = offer;
-      // effektiver IST-Zustand (Override > Rotation)
       const aMember = overrides[fromISO] ?? memberForDate(fromISO);
       const bMember = overrides[toISO]  ?? memberForDate(toISO);
-
       const batch = db.batch();
-      const refA = db.collection("overrides").doc(fromISO);
-      const refB = db.collection("overrides").doc(toISO);
-      batch.set(refA, { member: bMember }, { merge:true });
-      batch.set(refB, { member: aMember }, { merge:true });
-      const offerRef = db.collection("offers").doc(offer.id);
-      batch.delete(offerRef);
+      batch.set(db.collection("overrides").doc(fromISO), { member: bMember }, { merge:true });
+      batch.set(db.collection("overrides").doc(toISO),  { member: aMember }, { merge:true });
+      batch.delete(db.collection("offers").doc(offer.id));
       await batch.commit();
-      await refresh(); // neu zeichnen
+      await refresh();
     }
 
-    // =========================
-    //   RENDERING
-    // =========================
+    // ---------- Rendering ----------
     const FMT_DE = new Intl.DateTimeFormat("de-CH",{ weekday:"short", day:"2-digit", month:"2-digit", year:"numeric" });
 
     async function refresh(){
-      // Overrides laden (statisch + DB)
       const dyn = await loadOverridesFromDB();
       overrides = { ...STATIC_OVERRIDES, ...dyn };
-
       const weeks = parseInt(elWeeks.value,10);
       const firstISO = toISO(nextSunday(new Date()));
       currentRows = [];
@@ -279,19 +258,15 @@
     function renderTable(){
       elTBody.innerHTML = "";
       const filter = (elFilter.value || "").trim().toLowerCase();
+      const nextISO = toISO(nextSunday(new Date()));
 
       for (const row of currentRows){
         if (filter && !row.member.toLowerCase().includes(filter)) continue;
-
         const tr = document.createElement("tr");
-        // nächsten Sonntag hervorheben
-        if (row.iso === toISO(nextSunday(new Date()))) tr.classList.add("next");
+        if (row.iso === nextISO) tr.classList.add("next");
 
-        const tdDate = document.createElement("td");
-        tdDate.textContent = FMT_DE.format(fromISO(row.iso));
-
-        const tdMember = document.createElement("td");
-        tdMember.textContent = row.member;
+        const tdDate = document.createElement("td"); tdDate.textContent = FMT_DE.format(fromISO(row.iso));
+        const tdMember = document.createElement("td"); tdMember.textContent = row.member;
 
         const tdActions = document.createElement("td");
         const wrap = document.createElement("div"); wrap.className = "row-actions";
@@ -303,73 +278,44 @@
         const btnTake = document.createElement("button");
         btnTake.textContent = "Übernehmen";
         btnTake.title = "Setzt für diesen Tag einen Override auf mich";
-        btnTake.onclick = async () => {
-          const me = elWho.value;
-          await upsertOverride(row.iso, me);
-          await refresh();
-        };
+        btnTake.onclick = async () => { const me = elWho.value; await upsertOverride(row.iso, me); await refresh(); };
 
-        wrap.append(btnSwap, btnTake);
-        tdActions.append(wrap);
-        tr.append(tdDate, tdMember, tdActions);
-        elTBody.append(tr);
+        wrap.append(btnSwap, btnTake); tdActions.append(wrap);
+        tr.append(tdDate, tdMember, tdActions); elTBody.append(tr);
       }
     }
 
     function renderOffers(snap){
       elOffers.innerHTML = "";
-      if (snap.empty){
-        elOffers.innerHTML = "<div class='muted'>Keine Angebote vorhanden.</div>";
-        return;
-      }
+      if (snap.empty){ elOffers.innerHTML = "<div class='muted'>Keine Angebote vorhanden.</div>"; return; }
       snap.forEach(doc => {
         const o = { id: doc.id, ...doc.data() };
-        const div = document.createElement("div");
-        div.className = "offer";
+        const div = document.createElement("div"); div.className = "offer";
         const fromTxt = FMT.format(fromISO(o.fromISO));
         const toTxt   = FMT.format(fromISO(o.toISO));
         const who = o.requestedBy || "Unbekannt";
-        div.innerHTML = `
-          <div><strong>${fromTxt}</strong> ↔ <strong>${toTxt}</strong><br><small>erstellt von ${who}</small></div>
-        `;
+        div.innerHTML = `<div><strong>${fromTxt}</strong> ↔ <strong>${toTxt}</strong><br><small>erstellt von ${who}</small></div>`;
         const buttons = document.createElement("div");
-        const accept = document.createElement("button");
-        accept.className = "primary";
-        accept.textContent = "Annehmen";
-        accept.onclick = () => acceptOffer(o);
-
-        const remove = document.createElement("button");
-        remove.textContent = "Entfernen";
-        remove.title = "Angebot entfernen";
-        remove.onclick = () => deleteOffer(o.id);
-
-        buttons.append(accept, remove);
-        div.append(buttons);
-        elOffers.append(div);
+        const accept = document.createElement("button"); accept.className = "primary"; accept.textContent = "Annehmen"; accept.onclick = () => acceptOffer(o);
+        const remove = document.createElement("button"); remove.textContent = "Entfernen"; remove.title = "Angebot entfernen"; remove.onclick = () => deleteOffer(o.id);
+        buttons.append(accept, remove); div.append(buttons); elOffers.append(div);
       });
     }
 
-    // =========================
-    //   TAUSCH-DIALOG (BUGFIX: kein Namenskonflikt)
-    // =========================
+    // ---------- Tausch-Dialog ----------
     function openSwap(isoStr){
-      // Label/State
       elFromLabel.textContent = FMT.format(fromISO(isoStr));
       elSwapDialog.dataset.from = isoStr;
-
-      // Zieltermine füllen
       elToDate.innerHTML = "";
       for (const r of currentRows){
         if (r.iso === isoStr) continue;
         const opt = document.createElement("option");
         opt.value = r.iso;
-        const label = `${FMT.format(fromISO(r.iso))} — ${r.member}`;
-        opt.textContent = label;
+        opt.textContent = `${FMT.format(fromISO(r.iso))} — ${r.member}`;
         elToDate.append(opt);
       }
       elSwapDialog.showModal();
     }
-
     document.getElementById("cancelSwap").onclick = () => elSwapDialog.close();
     document.getElementById("createSwap").onclick = async () => {
       const me = elWho.value;
@@ -379,18 +325,11 @@
       elSwapDialog.close();
     };
 
-    // =========================
-    //   EVENTS & PDF-EXPORT
-    // =========================
-    document.getElementById("refresh").onclick = refresh;
-    elFilter.addEventListener("input", renderTable);
+    // ---------- PDF ----------
     document.getElementById("pdf").onclick = () => exportCleanPDF();
-
     function exportCleanPDF(){
-      // temporäre, saubere 2-Spalten-Tabelle aus aktuell gefilterter Ansicht
       const rows = Array.from(document.querySelectorAll('#visitTable tbody tr')).filter(tr => tr.style.display !== 'none');
-      const wrapper = document.createElement('div');
-      wrapper.style.padding = '12px';
+      const wrapper = document.createElement('div'); wrapper.style.padding = '12px';
       wrapper.innerHTML = `
         <h2 style="margin:0 0 8px">Sonntagsbesuche Papi</h2>
         <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif">
@@ -417,39 +356,26 @@
       }).save();
     }
 
-    // =========================
-    //   START
-    // =========================
+    // ---------- Events & Start ----------
+    document.getElementById("refresh").onclick = refresh;
+    elFilter.addEventListener("input", renderTable);
+
     (async function start(){
-      await initFirebase();  // setzt Firestore & Status
-      listenOffers();        // Live-Angebote
-      await refresh();       // Tabelle initial
+      await initFirebase();   // lädt SDK mit Fallbacks + initialisiert Firestore
+      listenOffers();         // Live-Angebote
+      await refresh();        // Tabelle
     })();
 
-    // =========================
-    //   FIRESTORE-REGELN (Beispiel)
-    // =========================
-    /*
-    // In der Firebase-Konsole unter Firestore -> Regeln:
+    /*  Firestore-Regeln (einfacher Start):
     rules_version = '2';
     service cloud.firestore {
       match /databases/{database}/documents {
-        // Alle dürfen lesen
-        match /{document=**} {
-          allow read: if true;
-        }
-        // Für Demo: auch schreiben erlauben (jede/r kann Angebot erstellen/entfernen, Overrides setzen)
-        // Später kannst du hier auf bestimmte E-Mail-Domains/UIDs einschränken.
-        match /overrides/{date} {
-          allow create, update, delete: if true;
-        }
-        match /offers/{id} {
-          allow create, update, delete: if true;
-        }
+        match /{document=**} { allow read: if true; }
+        match /overrides/{date} { allow create, update, delete: if true; }
+        match /offers/{id} { allow create, update, delete: if true; }
       }
     }
     */
   </script>
 </body>
 </html>
-
